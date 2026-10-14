@@ -52,10 +52,9 @@ it from a pinned Bloodborne-Android release and rehomes it to this app's package
 - **In-game menu**: gow3_pc's own menu (cheats, orb and damage multipliers, enemy health bar,
   performance overlay). Tap to use it, and press Back to close it. With a controller, **R3 + L2**
   opens it, as on PC.
-- **Graphics settings**: render resolution (480p / 720p / 1080p), display output (auto, the
-  default, matches the screen; or 1280x720 / 1920x1080; changing it restarts the app), engine frame rate (60 or the 120 FPS patch) and FPS
-  limit. The defaults are 720p rendering, automatic output, 60 and a 30 FPS limit; for a sharp 1080p
-  picture set both resolutions to 1080p.
+- **Graphics settings**: render resolution (480p / 720p / 1080p), engine frame rate (60 or the
+  120 FPS patch) and FPS limit. The defaults are 720p, 60 and a 30 FPS limit. The picture always
+  fills the screen at the screen's own resolution (1080p, or 720p on smaller screens).
 - **GPU driver**: the bundled Turnip (chosen automatically by GPU), or a Turnip zip.
 - **On-screen controller**, editable layout. Physical controllers work too.
 - **Back up / Restore saves**: saves are also compatible with the PC port's `user/savedata`.
