@@ -48,7 +48,7 @@ public final class MainActivity extends Activity {
     private static final int X_INSERT=118, X_ESCAPE=9, X_RETURN=36, X_UP=111, X_DOWN=116, X_LEFT=113, X_RIGHT=114,
         X_TAB=23, X_CONTROL=37;
     /** The game's X display (Xvfb) and the game window on it: 1280x720 or 1920x1080 (android.ini
-     *  display_output, the Graphics settings' "Display output"). Read when the app starts. */
+     *  display_output: auto, the default, matches the screen; 720p; 1080p). Read when the app starts. */
     private int X_WIDTH=1280, X_HEIGHT=720;
     private SurfaceHolder pendingHolder;
     private final Handler main=new Handler(Looper.getMainLooper());
@@ -96,7 +96,8 @@ public final class MainActivity extends Activity {
         });
         worker.execute(updater::cleanup); // downloads an earlier run left
         gameDir=getSharedPreferences(PREFS,MODE_PRIVATE).getString("game_dir",null);
-        if ("1080p".equals(setting("display_output"))) { X_WIDTH=1920; X_HEIGHT=1080; }
+        String output=setting("display_output");
+        if ("1080p".equals(output) || (!"720p".equals(output) && screenFits1080p())) { X_WIDTH=1920; X_HEIGHT=1080; }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (Build.VERSION.SDK_INT>=28) {
             WindowManager.LayoutParams attrs=getWindow().getAttributes();
@@ -110,6 +111,13 @@ public final class MainActivity extends Activity {
         immersive();
     }
 
+    /** Auto display output: 1080p when the largest 16:9 area of the screen is at least 1080 pixels tall. */
+    private boolean screenFits1080p() {
+        android.util.DisplayMetrics m=new android.util.DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getRealMetrics(m);
+        int w=Math.max(m.widthPixels,m.heightPixels), h=Math.min(m.widthPixels,m.heightPixels);
+        return Math.min(h,w*9/16)>=1080;
+    }
     private int dp(float n) { return Math.round(n*getResources().getDisplayMetrics().density); }
     private TextView text(String value, int size, int color) {
         TextView t=new TextView(this); t.setText(value); t.setTextSize(size); t.setTextColor(color); return t;

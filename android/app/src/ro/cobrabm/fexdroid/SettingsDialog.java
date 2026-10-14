@@ -23,8 +23,8 @@ final class SettingsDialog {
     private static final String[] FPS_LIMITS={"30","60","0"};
     private static final String[] FPS_LIMIT_NAMES={"30 FPS","60 FPS","No limit"};
     private static final String[] FLAGS={"0","1"};
-    private static final String[] OUTPUTS={"720p","1080p"};
-    private static final String[] OUTPUT_NAMES={"1280x720 (faster)","1920x1080"};
+    private static final String[] OUTPUTS={"auto","720p","1080p"};
+    private static final String[] OUTPUT_NAMES={"Auto (match the screen)","1280x720 (faster)","1920x1080"};
     private static final String[] OVERLAY_NAMES={"Off","On"};
 
     private final Activity activity;
@@ -80,7 +80,8 @@ final class SettingsDialog {
         String limit=get(ini,"fps_limit");
         return resolution+" · "+("0".equals(limit) ? "no FPS limit" : (limit==null ? "30" : limit)+" FPS limit")
             +("120".equals(get(ini,"engine_fps")) ? " · 120 FPS patch" : "")
-            +("1080p".equals(get(appIni,"display_output")) ? " · 1080p output" : "");
+            +("1080p".equals(get(appIni,"display_output")) ? " · 1080p output"
+              : "720p".equals(get(appIni,"display_output")) ? " · 720p output" : "");
     }
 
     private Spinner row(LinearLayout box,String label,String[] names,int selected) {
@@ -107,7 +108,8 @@ final class SettingsDialog {
         Spinner overlay=row(box,"Performance overlay (FPS)",OVERLAY_NAMES,index(FLAGS,get(ini,"overlay_fps"),0));
         TextView note=new TextView(activity); note.setTextSize(12); note.setPadding(0,dp(12),0,0);
         note.setText("Render resolution is what the game draws; display output is the picture sent to the screen. "
-            +"For a sharp 1080p picture, set both to 1080p (changing the display output restarts the app). "
+            +"Auto output matches the screen (1080p when it has the pixels). For a sharp 1080p picture, render "
+            +"at 1080p too; changing the display output restarts the app. "
             +"Phones are much slower than the PCs the patches were made for: 720p at the game's own 60 FPS "
             +"engine rate with a 30 FPS limit is the safe start. More options (cheats, multipliers, image) are in the "
             +"in-game menu.");
@@ -122,7 +124,7 @@ final class SettingsDialog {
                     & set(ini,"overlay_fps",FLAGS[overlay.getSelectedItemPosition()])
                     & set(ini,"show_fps",FLAGS[overlay.getSelectedItemPosition()]);
                 String newOutput=OUTPUTS[display.getSelectedItemPosition()];
-                boolean outputChanged=!newOutput.equals(output==null ? "720p" : output);
+                boolean outputChanged=!newOutput.equals(output==null ? "auto" : output);
                 if (outputChanged) ok&=set(appIni,"display_output",newOutput);
                 if (!ok) android.widget.Toast.makeText(activity,"Could not save the settings.",android.widget.Toast.LENGTH_LONG).show();
                 else if (outputChanged) restartApp.run();
