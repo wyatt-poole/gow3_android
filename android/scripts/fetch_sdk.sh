@@ -10,5 +10,9 @@ if [[ ! -x $sdk/cmdline-tools/latest/bin/sdkmanager ]]; then
     unzip -q -o out/android/cmdline-tools.zip -d "$sdk/cmdline-tools"
     mv "$sdk/cmdline-tools/cmdline-tools" "$sdk/cmdline-tools/latest"
 fi
-yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
+# `yes` answers the license prompts; it ends with a broken pipe when sdkmanager is done, which
+# pipefail would count as a failure. Success is checked by what got installed.
+(yes || true) | "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
+[[ -x $sdk/build-tools/35.0.0/d8 && -f $sdk/platforms/android-35/android.jar ]] ||
+    { echo "Android SDK install failed: $sdk" >&2; exit 1; }
 echo "Android SDK: $sdk"
