@@ -23,13 +23,18 @@ final class SettingsDialog {
     private static final String[] FPS_LIMITS={"30","60","0"};
     private static final String[] FPS_LIMIT_NAMES={"30 FPS","60 FPS","No limit"};
     private static final String[] FLAGS={"0","1"};
+    private static final String[] OUTPUTS={"720p","1080p"};
+    private static final String[] OUTPUT_NAMES={"1280x720 (faster)","1920x1080"};
     private static final String[] OVERLAY_NAMES={"Off","On"};
 
     private final Activity activity;
-    private final File ini;
-    private final Runnable restart;
+    private final File ini, appIni;
+    private final Runnable restart, restartApp;
 
-    SettingsDialog(Activity activity,File ini,Runnable restart) { this.activity=activity; this.ini=ini; this.restart=restart; }
+    /** ini: the game's gow3.ini; appIni: the app's android.ini (the display output size). */
+    SettingsDialog(Activity activity,File ini,File appIni,Runnable restart,Runnable restartApp) {
+        this.activity=activity; this.ini=ini; this.appIni=appIni; this.restart=restart; this.restartApp=restartApp;
+    }
 
     /** The last value of key in a key=value file, or null. */
     static String get(File file,String key) {
@@ -70,11 +75,12 @@ final class SettingsDialog {
         return fallback;
     }
     /** The drawer's second line. */
-    static String summary(File ini) {
+    static String summary(File ini,File appIni) {
         String resolution=RESOLUTION_NAMES[index(RESOLUTIONS,get(ini,"render_resolution"),1)].replaceAll(" \\(.*\\)","");
         String limit=get(ini,"fps_limit");
         return resolution+" · "+("0".equals(limit) ? "no FPS limit" : (limit==null ? "30" : limit)+" FPS limit")
-            +("120".equals(get(ini,"engine_fps")) ? " · 120 FPS patch" : "");
+            +("120".equals(get(ini,"engine_fps")) ? " · 120 FPS patch" : "")
+            +("1080p".equals(get(appIni,"display_output")) ? " · 1080p output" : "");
     }
 
     private Spinner row(LinearLayout box,String label,String[] names,int selected) {
@@ -93,12 +99,16 @@ final class SettingsDialog {
     void show() {
         LinearLayout box=new LinearLayout(activity); box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(24),dp(8),dp(24),0);
+        String output=get(appIni,"display_output");
+        Spinner display=row(box,"Display output",OUTPUT_NAMES,index(OUTPUTS,output,0));
         Spinner resolution=row(box,"Render resolution",RESOLUTION_NAMES,index(RESOLUTIONS,get(ini,"render_resolution"),1));
         Spinner engine=row(box,"Engine frame rate",ENGINE_FPS_NAMES,index(ENGINE_FPS,get(ini,"engine_fps"),0));
         Spinner limit=row(box,"Frame rate limit",FPS_LIMIT_NAMES,index(FPS_LIMITS,get(ini,"fps_limit"),0));
         Spinner overlay=row(box,"Performance overlay (FPS)",OVERLAY_NAMES,index(FLAGS,get(ini,"overlay_fps"),0));
         TextView note=new TextView(activity); note.setTextSize(12); note.setPadding(0,dp(12),0,0);
-        note.setText("Phones are much slower than the PCs the patches were made for: 720p at the game's own 60 FPS "
+        note.setText("Render resolution is what the game draws; display output is the picture sent to the screen. "
+            +"For a sharp 1080p picture, set both to 1080p (changing the display output restarts the app). "
+            +"Phones are much slower than the PCs the patches were made for: 720p at the game's own 60 FPS "
             +"engine rate with a 30 FPS limit is the safe start. More options (cheats, multipliers, image) are in the "
             +"in-game menu.");
         box.addView(note);
@@ -111,7 +121,11 @@ final class SettingsDialog {
                     & set(ini,"fps_limit",FPS_LIMITS[limit.getSelectedItemPosition()])
                     & set(ini,"overlay_fps",FLAGS[overlay.getSelectedItemPosition()])
                     & set(ini,"show_fps",FLAGS[overlay.getSelectedItemPosition()]);
+                String newOutput=OUTPUTS[display.getSelectedItemPosition()];
+                boolean outputChanged=!newOutput.equals(output==null ? "720p" : output);
+                if (outputChanged) ok&=set(appIni,"display_output",newOutput);
                 if (!ok) android.widget.Toast.makeText(activity,"Could not save the settings.",android.widget.Toast.LENGTH_LONG).show();
+                else if (outputChanged) restartApp.run();
                 else restart.run();
             }).show();
     }

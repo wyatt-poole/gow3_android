@@ -47,8 +47,9 @@ public final class MainActivity extends Activity {
     /** X11 keycodes (evdev + 8) of the keys the in-game menu (gpu/shim/gow3_overlay.cpp) reads. */
     private static final int X_INSERT=118, X_ESCAPE=9, X_RETURN=36, X_UP=111, X_DOWN=116, X_LEFT=113, X_RIGHT=114,
         X_TAB=23, X_CONTROL=37;
-    /** The game's X display (Xvfb) and the game window on it. */
-    private static final int X_WIDTH=1280, X_HEIGHT=720;
+    /** The game's X display (Xvfb) and the game window on it: 1280x720 or 1920x1080 (android.ini
+     *  display_output, the Graphics settings' "Display output"). Read when the app starts. */
+    private int X_WIDTH=1280, X_HEIGHT=720;
     private SurfaceHolder pendingHolder;
     private final Handler main=new Handler(Looper.getMainLooper());
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
@@ -95,6 +96,7 @@ public final class MainActivity extends Activity {
         });
         worker.execute(updater::cleanup); // downloads an earlier run left
         gameDir=getSharedPreferences(PREFS,MODE_PRIVATE).getString("game_dir",null);
+        if ("1080p".equals(setting("display_output"))) { X_WIDTH=1920; X_HEIGHT=1080; }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (Build.VERSION.SDK_INT>=28) {
             WindowManager.LayoutParams attrs=getWindow().getAttributes();
@@ -196,7 +198,7 @@ public final class MainActivity extends Activity {
         section("Graphics");
         graphicsItem=menuItem("ic_tune","Graphics settings","",() -> {
             closeDrawer();
-            new SettingsDialog(this,new File(DATA,"gow3.ini"),this::restartGame).show();
+            new SettingsDialog(this,new File(DATA,"gow3.ini"),new File(DATA,"android.ini"),this::restartGame,this::restartApp).show();
         });
         driverItem=menuItem("ic_memory","GPU driver","",() -> { closeDrawer(); showDrivers(); });
 
@@ -235,6 +237,19 @@ public final class MainActivity extends Activity {
         setContentView(screen);
     }
 
+    /** A new display size needs a new X server: the app starts again (its processes end with it). */
+    private void restartApp() {
+        destroyed=true; DisplayBridge.stop(); stopGame(); if (xvfb!=null) xvfb.destroyForcibly();
+        Intent start=getPackageManager().getLaunchIntentForPackage(getPackageName());
+        if (start!=null) {
+            start.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            android.app.PendingIntent later=android.app.PendingIntent.getActivity(this,0,start,
+                android.app.PendingIntent.FLAG_CANCEL_CURRENT|android.app.PendingIntent.FLAG_IMMUTABLE);
+            ((android.app.AlarmManager)getSystemService(ALARM_SERVICE))
+                .set(android.app.AlarmManager.RTC,System.currentTimeMillis()+500,later);
+        }
+        android.os.Process.killProcess(android.os.Process.myPid());
+    }
     private void restartGame() {
         closeDrawer(); setGameMenu(false); status.setText("Restarting God of War III…"); status.setVisibility(View.VISIBLE);
         worker.execute(() -> { stopGame(); startGame(); });
@@ -284,7 +299,7 @@ public final class MainActivity extends Activity {
     }
     /** The rows' second lines: the current settings, read when the drawer opens. */
     private void refreshDrawer() {
-        setDetail(graphicsItem,SettingsDialog.summary(new File(DATA,"gow3.ini")));
+        setDetail(graphicsItem,SettingsDialog.summary(new File(DATA,"gow3.ini"),new File(DATA,"android.ini")));
         DriverManager.Driver driver=drivers.find(setting("gpu_driver"));
         setDetail(driverItem,driver==null ? "Built-in Turnip" : driver.title()+" · automatic choice off");
         setDetail(controllerItem,controllerEnabled() ? "On" : "Off");
