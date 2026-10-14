@@ -1,6 +1,7 @@
 # The Android build. On every push and pull request: the fast check (android/scripts/check.sh).
-# On demand (Run workflow) or a tag android-<version>: the full ARM64 build and the APK, uploaded as
-# an artifact; for a tag also attached to its GitHub release (the app's "Check for updates" finds it).
+# On pushes to main, on demand (Run workflow) or a tag android-<version>: the full ARM64 build and
+# the APK, uploaded as an artifact; for a tag also attached to its GitHub release (the app's "Check
+# for updates" finds it). ccache keeps later builds short.
 name: Android - build
 
 on:
@@ -35,7 +36,8 @@ jobs:
           bash android/scripts/check.sh
 
   apk:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/android-')
+    # Every push to main (including the upstream syncs) builds the APK; a tag also releases it.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/android-')
     needs: check
     runs-on: ubuntu-24.04
     timeout-minutes: 240

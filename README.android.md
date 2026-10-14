@@ -83,7 +83,7 @@ bash android/scripts/build_apk.sh             # out/android/release/GoW3-<versio
 
 `build_apk.sh` signs with a local debug key, or with `GOW3_KEYSTORE`/`GOW3_KEYSTORE_PASS`/
 `GOW3_KEY_ALIAS`. The **Android - build** workflow does all of this in GitHub Actions: run it from
-the Actions tab, or push a tag `android-<version>` to attach the APK to a release. For a stable
+the Actions tab; every push to main builds it too, and a tag `android-<version>` also attaches it to a release. For a stable
 signing key there, add the repository secrets `GOW3_KEYSTORE_B64` (base64 keystore),
 `GOW3_KEYSTORE_PASS` and `GOW3_KEY_ALIAS`.
 
