@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - run: sudo apt-get update -q && sudo apt-get install -y -q clang lld llvm cmake ninja-build pkg-config glslang-tools patch zip qemu-user
+      - run: sudo apt-get update -q && sudo apt-get install -y -q clang lld llvm cmake ninja-build pkg-config glslang-tools patch zip qemu-user ccache
       - uses: actions/cache@v4
         with:
           path: |
@@ -55,11 +55,27 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      # Compiled objects from earlier builds (ccache) and the downloads: later builds only
+      # recompile what changed. The newest cache wins; GitHub drops caches unused for 7 days.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .ccache
+            out/android/base
+            out/android/src
+          key: android-ccache-${{ github.run_id }}
+          restore-keys: android-ccache-
       - name: Build (ARM64 runtime, GPU library, FEXCore, PKG tool)
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CCACHE_MAXSIZE: 3G
+          CCACHE_BASEDIR: ${{ github.workspace }}
         run: |
+          ccache --zero-stats
           python3 android/scripts/fetch_sysroot.py --arch arm64
           bash android/scripts/build_arm64.sh
           bash android/scripts/build_pkg_tool.sh
+          ccache --show-stats
       - name: Test the ARM64 build under qemu (FEXCore crossings, loader tests, runtime tests)
         run: bash android/scripts/test_qemu.sh
       - name: Package the APK

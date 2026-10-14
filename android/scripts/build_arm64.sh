@@ -16,6 +16,12 @@ interpreter=/data/data/$package/files/rootfs/usr/lib/aarch64-linux-gnu/ld-linux-
 [[ -f $sysroot/usr/lib/aarch64-linux-gnu/libc.so.6 ]] ||
     { echo "No sysroot: $sysroot (python3 android/scripts/fetch_sysroot.py)" >&2; exit 1; }
 mkdir -p "$out"
+# ccache (when installed) keeps compiled objects between builds: CI restores its cache, so a build
+# only recompiles what changed since the last one.
+launcher=()
+if command -v ccache >/dev/null; then
+    launcher=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+fi
 if [[ ! -f third_party/FEX/External/vixl/CMakeLists.txt || ! -f gpu/third_party/imgui/imgui.h ]]; then
     git submodule update --init --recursive
 fi
@@ -25,7 +31,7 @@ build_fex() {
         cmake -S third_party/FEX -B "$out/fex" -G Ninja -DCMAKE_TOOLCHAIN_FILE="$toolchain" \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_PROJECT_FEX_INCLUDE="$PWD/cpu/fex_project.cmake" \
             -DBUILD_TESTING=OFF -DBUILD_THUNKS=OFF -DBUILD_FEXCONFIG=OFF -DBUILD_STEAM_SUPPORT=OFF \
-            -DBUILD_FEX_LINUX_TESTS=OFF -DENABLE_ZYDIS=OFF -DTUNE_ARCH=armv8.2-a -DTUNE_CPU=generic \
+            -DBUILD_FEX_LINUX_TESTS=OFF -DENABLE_ZYDIS=OFF -DTUNE_ARCH=armv8.2-a -DTUNE_CPU=generic "${launcher[@]}" \
             > "$out/fex-cmake.log" 2>&1 || { tail -30 "$out/fex-cmake.log" >&2; exit 1; }
     fi
     ninja -C "$out/fex" gow3cpu > "$out/fex-build.log" 2>&1 ||
@@ -55,7 +61,7 @@ build_gpu() {
     done
     if [[ ! -f $out/gpu/build.ninja ]]; then
         cmake -S gpu -B "$out/gpu" -G Ninja -DCMAKE_TOOLCHAIN_FILE="$toolchain" \
-            -DGOW3_ARM64_SYSROOT="$sysroot" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DGOW3_PGO=off \
+            -DGOW3_ARM64_SYSROOT="$sysroot" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DGOW3_PGO=off "${launcher[@]}" \
             -DGOW3_LTO="${GOW3_LTO:-OFF}" -DCMAKE_CXX_FLAGS="-isystem $vulkan_headers/include" \
             -DCMAKE_C_FLAGS="-isystem $vulkan_headers/include" > "$out/gpu-cmake.log" 2>&1 ||
             { tail -30 "$out/gpu-cmake.log" >&2; exit 1; }
