@@ -12,6 +12,7 @@
 #include <functional>
 
 #include "gow3_copy.h"
+#include "gow3_cpu.h"
 #include "video_core/renderer_vulkan/vk_gpu_profiler.h"
 #include "gow3_toggles.h"
 #include "video_core/renderer_vulkan/vk_wait_diagnostics.h"
@@ -318,7 +319,7 @@ void Scheduler::RecorderThread(std::stop_token stoken) {
             Gow3Threads::Available() >= 12 ? 200 : 20);
         const auto spin_until = std::chrono::steady_clock::now() + spin_time;
         for (u32 spins = 1; queued_chunks.load(std::memory_order_acquire) == 0; ++spins) {
-            __builtin_ia32_pause();
+            Gow3Cpu::Pause();
             // The clock is read every 256 pauses, not per iteration.
             if (!(spins & 255) &&
                 (stoken.stop_requested() || std::chrono::steady_clock::now() >= spin_until)) {

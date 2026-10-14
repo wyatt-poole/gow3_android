@@ -1,8 +1,14 @@
 #include "cpu_check.h"
+#if defined(__x86_64__)
 #include <cpuid.h>
+#endif
 #include <stdio.h>
 
 CpuFeatureWords cpu_feature_words(void) {
+#if !defined(__x86_64__)
+    /* Android/ARM64: the guest CPU (FEXCore) provides the game's instruction sets. */
+    return (CpuFeatureWords){UINT32_MAX, UINT32_MAX, UINT32_MAX};
+#else
     CpuFeatureWords words = {0, 0, 0};
     unsigned a = 0, b = 0, c = 0, d = 0;
     if (__get_cpuid(1, &a, &b, &c, &d)) words.leaf1_ecx = c;
@@ -10,6 +16,7 @@ CpuFeatureWords cpu_feature_words(void) {
     if (__get_cpuid(0x80000001, &a, &b, &c, &d)) words.ext1_ecx = c;
     (void)a; (void)d;
     return words;
+#endif
 }
 
 /* Jaguar's sets beyond the x86-64 baseline that Intel CPUs also have (SSE4A is left out: the

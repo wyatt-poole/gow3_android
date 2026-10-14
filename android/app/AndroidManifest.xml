@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The package name must keep the length of the base runtime's (com.ducvd89.bloodborne, 22
+     characters): android/scripts/build_runtime.py rehomes the rootfs's paths in place. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="io.github.gow3.android" android:versionCode="1" android:versionName="0.1.0">
+    <!-- targetSdk 28: the Linux runtime runs executables from the app's data (W^X applies from 29),
+         and reads the game folder in shared storage by file path. -->
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="28" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The menu's "Check for updates" installs the new APK through a PackageInstaller session. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <application android:label="God of War III" android:icon="@drawable/icon"
+        android:theme="@style/GameTheme"
+        android:allowBackup="false" android:extractNativeLibs="true" android:isGame="true"
+        android:requestLegacyExternalStorage="true">
+        <!-- Classes keep their package: the display and input bridges are bound to it (JNI names). -->
+        <activity android:name="ro.cobrabm.fexdroid.MainActivity" android:exported="true"
+            android:screenOrientation="sensorLandscape" android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|density">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

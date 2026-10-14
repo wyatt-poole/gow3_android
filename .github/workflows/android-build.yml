@@ -1,0 +1,91 @@
+# The Android build. On every push and pull request: the fast check (android/scripts/check.sh).
+# On demand (Run workflow) or a tag android-<version>: the full ARM64 build and the APK, uploaded as
+# an artifact; for a tag also attached to its GitHub release (the app's "Check for updates" finds it).
+name: Android - build
+
+on:
+  push:
+    branches: [main]
+    tags: ['android-*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -q && sudo apt-get install -y -q clang lld llvm pkg-config
+      - uses: actions/cache@v4
+        with:
+          path: |
+            out/android/arm64-debs
+            out/android/amd64-debs
+            out/android/sdk
+          key: android-deps-${{ hashFiles('android/scripts/fetch_sysroot.py', 'android/scripts/fetch_sdk.sh') }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: |
+          git submodule update --init --recursive gpu/third_party/imgui third_party/LibAtrac9
+          bash android/scripts/check.sh
+
+  apk:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/android-')
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - run: sudo apt-get update -q && sudo apt-get install -y -q clang lld llvm cmake ninja-build pkg-config glslang-tools patch zip qemu-user
+      - uses: actions/cache@v4
+        with:
+          path: |
+            out/android/arm64-debs
+            out/android/amd64-debs
+            out/android/sdk
+          key: android-deps-${{ hashFiles('android/scripts/fetch_sysroot.py', 'android/scripts/fetch_sdk.sh') }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build (ARM64 runtime, GPU library, FEXCore, PKG tool)
+        run: |
+          python3 android/scripts/fetch_sysroot.py --arch arm64
+          bash android/scripts/build_arm64.sh
+          bash android/scripts/build_pkg_tool.sh
+      - name: Test the ARM64 build under qemu (FEXCore crossings, loader tests, runtime tests)
+        run: bash android/scripts/test_qemu.sh
+      - name: Package the APK
+        env:
+          GOW3_KEYSTORE_B64: ${{ secrets.GOW3_KEYSTORE_B64 }}
+          GOW3_KEYSTORE_PASS: ${{ secrets.GOW3_KEYSTORE_PASS }}
+          GOW3_KEY_ALIAS: ${{ secrets.GOW3_KEY_ALIAS }}
+        run: |
+          bash android/scripts/fetch_sdk.sh
+          python3 android/scripts/build_runtime.py
+          # A release key from the repository's secrets (updates install over the same key only).
+          if [ -n "$GOW3_KEYSTORE_B64" ]; then
+            echo "$GOW3_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            export GOW3_KEYSTORE="$RUNNER_TEMP/release.keystore"
+          fi
+          bash android/scripts/build_apk.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gow3-android-apk
+          path: |
+            out/android/release/GoW3-*.apk
+            out/android/release/GoW3-*.apk.sha256
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/android-')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes 'Android build.'
+          gh release upload "$GITHUB_REF_NAME" out/android/release/GoW3-*.apk out/android/release/GoW3-*.apk.sha256 --clobber

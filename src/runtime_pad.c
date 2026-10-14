@@ -105,6 +105,8 @@ static void play_click(PadData *d) {
 
 /* Opens the first gamepad SDL knows about; called under lock. */
 static SDL_Gamepad *current_gamepad(void) {
+    /* The Android app hands over its pads through GOW3_PAD_FILE: no SDL gamepads. */
+    if (!sdl_ready) { const char *android=getenv("GOW3_ANDROID_INPUT"); if (android && android[0]=='1') sdl_ready=-1; }
     if (!sdl_ready) sdl_ready = SDL_WasInit(SDL_INIT_GAMEPAD) ? 1 : SDL_InitSubSystem(SDL_INIT_GAMEPAD) ? 1 : -1;
     if (sdl_ready<0) return NULL;
     if (gamepad && !SDL_GamepadConnected(gamepad)) { SDL_CloseGamepad(gamepad); gamepad=NULL; }
@@ -256,9 +258,10 @@ static void sample_host(PadData *d) {
 /* GOW3_PAD_FILE=<file>: scripted input for automated runs. The file holds whitespace-separated
  * tokens, re-read when it changes: button names (cross circle square triangle l1 r1 l2 r2 l3 r3
  * options touchpad touchpad_left touchpad_right up down left right) are held while listed;
- * touchpad is the left side; lx= ly= rx= ry= (0..255) override the sticks. An empty file
- * releases everything. */
-static struct { uint32_t buttons; int stick[4]; } injected={0,{-1,-1,-1,-1}};
+ * touchpad is the left side; lx= ly= rx= ry= l2= r2= (0..255) override the sticks and the
+ * triggers. An empty file releases everything. GOW3_PAD_QUIET=1 (the Android app, which rewrites
+ * it many times a second) does not log each change. */
+static struct { uint32_t buttons; int stick[4]; int triggers[2]; } injected={0,{-1,-1,-1,-1},{-1,-1}};
 static int replay_armed;      /* 1 while a GOW3_PAD_REPLAY recording plays, 2 once it ended */
 static uint64_t replay_start; /* 0: (re)start at the next sample */
 static void read_inject(void) {
@@ -283,14 +286,16 @@ static void read_inject(void) {
     static const char *sticks[]={"lx=","ly=","rx=","ry="};
     injected.buttons=0;
     for (int i=0;i<4;++i) injected.stick[i]=-1;
+    injected.triggers[0]=injected.triggers[1]=-1;
     char token[64];
     while (fscanf(f,"%63s",token)==1) {
         if (!strcmp(token,"replay") && replay_armed!=1) { replay_armed=1; replay_start=0; } /* GOW3_PAD_REPLAY */
         for (size_t i=0;i<sizeof(ps_names)/sizeof(*ps_names);++i) if (!strcmp(token,ps_names[i].name)) injected.buttons|=ps_names[i].ps;
         for (int i=0;i<4;++i) if (!strncmp(token,sticks[i],3)) { int v=atoi(token+3); injected.stick[i]=v<0 ? 0 : v>255 ? 255 : v; }
+        for (int i=0;i<2;++i) if (!strncmp(token,i ? "r2=" : "l2=",3)) { int v=atoi(token+3); injected.triggers[i]=v<0 ? 0 : v>255 ? 255 : v; }
     }
     fclose(f);
-    printf("Runtime: pad file: buttons 0x%x sticks %d %d %d %d\n",injected.buttons,
+    if (!getenv("GOW3_PAD_QUIET")) printf("Runtime: pad file: buttons 0x%x sticks %d %d %d %d\n",injected.buttons,
            injected.stick[0],injected.stick[1],injected.stick[2],injected.stick[3]);
 }
 /* GOW3_PAD_RECORD=<file>: F9 starts and stops recording the pad state (gamepad or keyboard) with
@@ -373,6 +378,12 @@ static void sample(PadData *d) {
     d->buttons|=injected.buttons;
     if (injected.buttons & BTN_L2) d->l2=255;
     if (injected.buttons & BTN_R2) d->r2=255;
+    /* Analog triggers: partial presses, and the button past the same threshold as a gamepad's. */
+    for (int i=0;i<2;++i) if (injected.triggers[i]>=0) {
+        uint8_t *value=i ? &d->r2 : &d->l2;
+        if (injected.triggers[i]>*value) *value=(uint8_t)injected.triggers[i];
+        if (*value>30) d->buttons|=i ? BTN_R2 : BTN_L2;
+    }
     uint8_t *axes[4]={&d->left_x,&d->left_y,&d->right_x,&d->right_y};
     for (int i=0;i<4;++i) if (injected.stick[i]>=0) *axes[i]=(uint8_t)injected.stick[i];
     play_click(d);

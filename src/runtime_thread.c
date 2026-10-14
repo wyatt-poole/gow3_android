@@ -7,6 +7,7 @@
  * the same 9-byte instruction with another displacement. */
 #define _GNU_SOURCE
 #include "runtime.h"
+#include "guest_cpu.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +21,9 @@
 #else
 #include <sys/syscall.h>
 #include <sys/mman.h>
+#if defined(__x86_64__)
 #include <asm/prctl.h>
+#endif
 #endif
 #define ERR(n) ((int32_t)(UINT32_C(0x80020000)|(n)))
 #define ATTR_MAGIC UINT32_C(0x41545452)
@@ -46,6 +49,8 @@ typedef struct GuestThread {
     ThreadAttr attr;
     char name[32];
     int detached, finished, joined, host_owned;
+    unsigned char *guest_stack; /* separate from the host stack when the guest CPU is not the host's */
+    size_t guest_stack_size;
 #ifdef _WIN32
     gow3_jmp_buf exit_jump; /* no SEH unwinding through guest frames */
 #else
@@ -82,10 +87,14 @@ static void set_gs(void *base) {
     if (!TlsSetValue(tls_slot,base)) { fprintf(stderr,"STOP: TlsSetValue failed (%lu)\n",GetLastError()); exit(21); }
 }
 #define tls_block_alloc(size) _aligned_malloc(size,64)
-#else
+#elif defined(GUEST_CPU_NATIVE)
 static void set_gs(void *base) {
     if (syscall(SYS_arch_prctl,ARCH_SET_GS,(unsigned long)base)) { perror("STOP: arch_prctl(ARCH_SET_GS)"); exit(21); }
 }
+#define tls_block_alloc(size) aligned_alloc(64,size)
+#else
+/* Android/ARM64: the guest CPU (FEXCore) holds the guest's GS base. */
+static void set_gs(void *base) { guest_cpu_set_gs(base); }
 #define tls_block_alloc(size) aligned_alloc(64,size)
 #endif
 /* Build TCB/static TLS for the calling host thread and point GS at it. */
@@ -256,8 +265,18 @@ static void *host_start(void *p) {
     GuestThread *t=p;
     attach(t);
     set_host_name(t->name);
+#ifdef GUEST_CPU_NATIVE
     if (!exit_setjmp(t)) t->result=t->entry(t->argument);
+#else
+    if (t->guest_stack) guest_cpu_thread_stack(t->guest_stack+t->guest_stack_size,t->guest_stack_size);
+    const uint64_t argument=(uint64_t)(uintptr_t)t->argument;
+    if (!exit_setjmp(t)) t->result=(void *)(uintptr_t)guest_cpu_call((uintptr_t)t->entry,1,&argument);
+    else guest_cpu_abandon();
+#endif
     runtime_thread_keys_cleanup();
+#ifndef GUEST_CPU_NATIVE
+    guest_cpu_thread_end();
+#endif
     pthread_mutex_lock(&lock); t->finished=1; ++exited; pthread_mutex_unlock(&lock);
     return t->result;
 }
@@ -283,6 +302,11 @@ static int32_t create(GuestThread **out,ThreadAttr **attr_slot,GuestEntry entry,
     void *stack_memory=runtime_low_map(stack_bytes,PROT_READ|PROT_WRITE);
     if (stack_memory) pthread_attr_setstack(&host,stack_memory,stack_bytes);
     else pthread_attr_setstacksize(&host,stack_bytes);
+#endif
+#ifndef GUEST_CPU_NATIVE
+    t->guest_stack=runtime_low_map((size_t)stack,PROT_READ|PROT_WRITE);
+    if (!t->guest_stack) { fputs("STOP: cannot allocate a guest thread stack\n",stderr); exit(21); }
+    t->guest_stack_size=(size_t)stack;
 #endif
     publish(t);
     /* Publish the handle before the thread can run and inspect itself. */

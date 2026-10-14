@@ -1,0 +1,81 @@
+Native display and X11 input bridges: fexdroid
+https://github.com/cobrabm12/fexdroid
+Source revision 2b03ec73c3507b640fba1942fb8d99b43b88945a
+Reused unmodified from the verified fexdroid legacy APK.
+
+Turnip Vulkan driver: Mesa (MIT), https://gitlab.freedesktop.org/mesa/mesa
+commit 35b085c4c067f198ce0b6437d94678e47b9c645f, with fexdroid's Mesa patches
+0001, 0005, 0006 and 0007 (patches/mesa at fexdroid revision
+dbf9808b07570faf5aa912af16d4c4a1b5d0130f), under the fexdroid license below.
+Adreno 8xx variant: Mesa from https://github.com/whitebelyash/mesa-unified
+(turnip/gen8, commit 9c7e022677dfa3abb356c2b6732cbd2e25783d01, MIT), with
+upstream Mesa commits b889ab52, b7ad24ad, e984ef29, 6cb65e61 and the same
+fexdroid patches.
+
+lsfg-vk 1.0.0 (bbport/arm64/lsfg): Lossless Scaling frame generation on Linux,
+https://github.com/PancakeTAS/lsfg-vk (tag v1.0.0), MIT License, Copyright (c)
+2025 lsfg-vk (bbport/arm64/lsfg/LICENSE.md). Built for ARM64 with this port's
+changes for the Turnip driver (bbport/arm64/lsfg/0001-turnip-kgsl-sync-fd.patch).
+It includes dxbc from DXVK (zlib/libpng license; Copyright (c) 2017 Philip
+Rebohle, 2019 Joshua Ashton, 2019 Robin Kertels, 2023 Jeffrey Ellison),
+pe-parse (MIT, Copyright (c) 2013 Andrew Ruef), toml11 (MIT, Copyright (c) 2017
+Toru Niina) and volk (MIT, Copyright (c) 2018-2025 Arseny Kapoulkine).
+Lossless Scaling and its Lossless.dll are not included: the app downloads the
+player's own copy from Steam, or the player copies it.
+
+Steam sign-in (downloads Lossless.dll from the player's own Lossless Scaling):
+JavaSteam 1.8.0 (MIT, https://github.com/Longi94/JavaSteam), with Kotlin and
+kotlinx.coroutines/io/serialization (Apache-2.0, JetBrains), Ktor (Apache-2.0,
+JetBrains), OkHttp and Okio (Apache-2.0, Square), Protocol Buffers for Java
+(BSD-3-Clause, Google), Apache Commons Lang 3 (Apache-2.0), SLF4J API (MIT),
+JetBrains annotations (Apache-2.0), XZ for Java (0BSD, Lasse Collin) and
+zstd-jni (BSD-2-Clause, Luben Karavelov; bundles Zstandard, BSD). The QR code
+is drawn with ZXing core 3.5.4 (Apache-2.0). Menu icons: Material Design icons
+(Apache-2.0, Google).
+
+Mods (unpacking .zip and .7z mod archives): Apache Commons Compress 1.26.1, Apache
+Commons IO 2.15.1 and Apache Commons Codec 1.16.1 (all Apache-2.0), with the XZ for
+Java and Apache Commons Lang 3 libraries above. Their notices:
+
+Apache Commons Compress
+Copyright 2002-2024 The Apache Software Foundation
+
+Apache Commons IO
+Copyright 2002-2023 The Apache Software Foundation
+
+Apache Commons Codec
+Copyright 2002-2024 The Apache Software Foundation
+
+These products include software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+FSR 3.1: AMD FidelityFX (MIT) through
+FireBurn/FSR-Vulkan.
+
+MIT License
+
+Copyright (c) 2026 Marius
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+PS4 PKG unpacking (mods, game and update PKGs): ps4-pkg-tool
+https://github.com/xXJSONDeruloXx/ps4-pkg-tools (shadPS4's PKG/PFS code), GPL-2.0-or-later,
+with Crypto++ (Boost Software License 1.0) and zlib. It is a separate program in the app's
+runtime; its full notice, source revision and this project's patches are in
+bbport/licenses/ps4-pkg-tool.NOTICE and tools/android/ps4-pkg-tool.NOTICE in the source.
