@@ -20,6 +20,10 @@ read -r -a includes <<< "-isystem $vulkan_headers/include $(pkg-config --cflags 
 read -r -a libraries <<< "$(pkg-config --libs vulkan sdl3 libavcodec libavutil libswscale)"
 tests=out/arm64/tests
 mkdir -p "$tests"
+# shadPS4 creates ~/.local/share/shadPS4 at start, one level only (fresh CI runners have no
+# ~/.local/share): a home of the tests' own, as run-game.sh makes one on the device.
+export HOME=$PWD/$tests/home
+mkdir -p "$HOME/.local/share"
 failed=0
 "${cc[@]}" tests/test_guest_cpu.c -Lout/arm64/fex -lgow3cpu -o "$tests/guest-cpu-test"
 "${run[@]}" "$tests/guest-cpu-test" || failed=1

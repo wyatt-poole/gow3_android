@@ -59,7 +59,7 @@ jobs:
           java-version: '21'
       # Compiled objects from earlier builds (ccache) and the downloads: later builds only
       # recompile what changed. The newest cache wins; GitHub drops caches unused for 7 days.
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             .ccache
@@ -78,6 +78,15 @@ jobs:
           bash android/scripts/build_arm64.sh
           bash android/scripts/build_pkg_tool.sh
           ccache --show-stats
+      # Saved even when a later step fails: the next build still starts from these objects.
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            .ccache
+            out/android/base
+            out/android/src
+          key: android-ccache-${{ github.run_id }}
       - name: Test the ARM64 build under qemu (FEXCore crossings, loader tests, runtime tests)
         run: bash android/scripts/test_qemu.sh
       - name: Package the APK
