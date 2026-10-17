@@ -2,6 +2,12 @@
 # (or on demand) upstream main is merged into the branch upstream-sync, checked with
 # android/scripts/check.sh, and offered as a pull request into main. A merge with conflicts fails
 # this job with the list of files; resolve it locally with android/sync-upstream.sh.
+#
+# Token: the workflow's own token cannot push a merge that changes upstream's workflow files
+# (.github/workflows), and new repositories do not let it open pull requests. Add a repository
+# secret SYNC_TOKEN (a fine-grained personal access token for this repository with Contents,
+# Pull requests and Workflows read/write) and every sync goes through. Without it, a sync the
+# token cannot push opens an issue asking for android/sync-upstream.sh to be run by hand.
 name: Android - sync upstream
 
 on:
@@ -12,6 +18,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: upstream-sync
@@ -25,6 +32,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
       - name: Merge upstream main
         id: merge
         run: |
@@ -66,12 +74,25 @@ jobs:
       - name: Open or update the pull request
         if: steps.merge.outputs.new != '0'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+          ISSUE_TOKEN: ${{ github.token }}
+          NEW: ${{ steps.merge.outputs.new }}
         run: |
-          git push --force origin upstream-sync
-          body="Merges ${{ steps.merge.outputs.new }} new commit(s) of [gow3_pc](https://github.com/FelipePrado0/gow3_pc) main. android/scripts/check.sh passed (runtime for ARM64 and x86-64, Android app, scripts)."
-          if [ -z "$(gh pr list --head upstream-sync --state open --json number --jq '.[0].number')" ]; then
-            gh pr create --base main --head upstream-sync --title 'Sync with upstream gow3_pc' --body "$body"
-          else
-            gh pr edit upstream-sync --body "$body"
+          body="Merges $NEW new commit(s) of [gow3_pc](https://github.com/FelipePrado0/gow3_pc) main. android/scripts/check.sh passed (runtime for ARM64 and x86-64, Android app, scripts)."
+          if git push --force origin upstream-sync 2> push.log &&
+             { [ -n "$(gh pr list --head upstream-sync --state open --json number --jq '.[0].number')" ] &&
+                 gh pr edit upstream-sync --body "$body" ||
+               gh pr create --base main --head upstream-sync --title 'Sync with upstream gow3_pc' --body "$body"; } 2>> push.log
+          then
+            exit 0
           fi
+          cat push.log
+          # The token could not push (upstream changed its workflow files) or open the pull request:
+          # one open issue says so, updated on later runs.
+          reason="The merge itself is clean and the Android check passed, but this workflow's token could not push it or open the pull request:"
+          text=$(printf '%s\n\n```\n%s\n```\n\nRun `android/sync-upstream.sh` on a clone and push, or add the SYNC_TOKEN secret (see .github/workflows/android-upstream-sync.yml).' "$reason $NEW new upstream commit(s) are waiting." "$(tail -n 5 push.log)")
+          export GH_TOKEN=$ISSUE_TOKEN
+          number=$(gh issue list --state open --search 'Upstream sync needs a manual merge in:title' --json number --jq '.[0].number')
+          if [ -n "$number" ]; then gh issue comment "$number" --body "$text"
+          else gh issue create --title 'Upstream sync needs a manual merge' --body "$text"; fi
+          echo '::warning::Upstream sync could not be pushed with this token; an issue says what to do.'

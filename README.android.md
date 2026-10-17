@@ -98,6 +98,12 @@ android/scripts/build_arm64.sh && android/scripts/test_qemu.sh   # deeper: build
 The **Android - sync upstream** workflow does the same every day. It merges gow3_pc's main into the
 branch `upstream-sync`, runs the check and opens a pull request. When upstream doesn't merge cleanly,
 the job fails and lists the conflicting files; resolve them locally with `android/sync-upstream.sh`.
+GitHub does not let a workflow's own token push upstream's changes to its workflow files, or open
+pull requests in new repositories: add a repository secret `SYNC_TOKEN` (a fine-grained personal
+access token for this repository with Contents, Pull requests and Workflows read/write) for fully
+automatic syncs. Without it, such a sync opens an issue asking for `android/sync-upstream.sh`.
+Upstream's own workflows come along with the merge: `discord-notify` needs upstream's Discord
+secrets, so disable it in this fork (Actions tab, Discord notify, Disable workflow).
 
 What keeps syncs easy:
 - Android-only code is in new paths only: `android/`, `cpu/`, `third_party/FEX`,
