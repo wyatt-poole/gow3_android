@@ -89,6 +89,13 @@ jobs:
           key: android-ccache-${{ github.run_id }}
       - name: Test the ARM64 build under qemu (FEXCore crossings, loader tests, runtime tests)
         run: bash android/scripts/test_qemu.sh
+      # Without the release-key secrets the APK is signed with a debug key: kept in a cache of
+      # its own (one fixed key name, so it is created once and then always restored), so builds can
+      # update each other. Caches unused for 7 days are dropped: then the key changes once.
+      - uses: actions/cache@v4
+        with:
+          path: out/android/debug.keystore
+          key: android-debug-keystore-v1
       - name: Package the APK
         env:
           GOW3_KEYSTORE_B64: ${{ secrets.GOW3_KEYSTORE_B64 }}
