@@ -80,6 +80,11 @@ python3 android/scripts/build_runtime.py      # rootfs (pinned Bloodborne-Androi
 bash android/scripts/build_apk.sh             # out/android/release/GoW3-<version>.apk
 ```
 
+With the phone connected over ADB (USB debugging, or Wireless debugging):
+`android/scripts/adb.sh install` installs the newest APK (a local build, else the latest one built
+on GitHub, through `gh`) and starts it; `adb.sh logs` copies the game log and the app's logcat to
+`out/android/device-logs`.
+
 `build_apk.sh` signs with a local debug key, or with `GOW3_KEYSTORE`/`GOW3_KEYSTORE_PASS`/
 `GOW3_KEY_ALIAS`. The **Android - build** workflow does all of this in GitHub Actions: run it from
 the Actions tab; every push to main builds it too, and a tag `android-<version>` also attaches it to a release. For a stable
